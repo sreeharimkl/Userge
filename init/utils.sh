@@ -8,7 +8,22 @@
 #
 # All rights reserved.
 
-declare -r pVer=$(sed -E 's/\w+ 3\.8\.([0-9]+)/3.8.\1/g' < <(python3.8 -V 2> /dev/null))
+declare -r minPVer=8
+declare -r maxPVer=9
+
+getPythonVersion() {
+    local -i count
+    local tmp found
+    [[ $DYNO ]] && count=$maxPVer || count=$minPVer
+    while true; do
+        tmp=$(python3.$count -V 2> /dev/null)
+        found=$(grep "^Python 3." <<< "$tmp")
+        [[ -n $found ]] && break
+        count+=1
+        [[ $count -gt $maxPVer ]] && break
+    done
+    declare -gr pVer=$(sed -E 's/Python (3\.[0-9]{1,2}\.[0-9]{1,2}).*/\1/g' <<< "$tmp")
+}
 
 log() {
     local text="$*"
@@ -71,12 +86,16 @@ fetchBranches() {
     done
 }
 
+updateBuffer() {
+    git config http.postBuffer 524288000
+}
+
 upgradePip() {
     pip3 install -U pip &> /dev/null
 }
 
 installReq() {
-    pip3 install -r $1/requirements.txt &> /dev/null
+    pip3 install --no-cache-dir -r $1/requirements.txt &> /dev/null
 }
 
 printLine() {
